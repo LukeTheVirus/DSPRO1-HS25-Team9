@@ -18,6 +18,6 @@ def mark_any_down(file_path: Path, output_dir: Path):
 
 
 if __name__ == '__main__':
-    sample_file = Path("../Docs/sample-1.pptx")
+    sample_file = Path("../docs/sample-1.pptx")
     output_dir = Path("../src/md_versions")
     mark_any_down(sample_file, output_dir)
