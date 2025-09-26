@@ -1,0 +1,21 @@
+# 1) GPG key
+sudo mkdir -p /etc/apt/keyrings
+sudo wget -qO /etc/apt/keyrings/nvidia-container-toolkit.asc \
+  https://nvidia.github.io/libnvidia-container/gpgkey
+
+# 2) Repo (note the .../stable/deb/amd64 /)
+echo "deb [signed-by=/etc/apt/keyrings/nvidia-container-toolkit.asc] \
+https://nvidia.github.io/libnvidia-container/stable/deb/amd64 /" \
+| sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+# 3) Install
+sudo apt update
+sudo apt install -y nvidia-container-toolkit
+
+# 4) Wire Docker to the NVIDIA runtime
+sudo nvidia-ctk runtime configure --runtime=docker
+
+# 5) Restart Docker
+sudo systemctl restart docker
+
+# and to test: docker run --rm --gpus all nvidia/cuda:12.6.0-base-ubuntu22.04 nvidia-smi
