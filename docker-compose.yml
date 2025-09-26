@@ -1,0 +1,64 @@
+version: "3.9"
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-lc", "ollama list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 6s
+      retries: 20
+    # optional if you have NVIDIA GPU
+    gpus: all
+    restart: unless-stopped
+
+  pull-mistral:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ollama:/root/.ollama
+    entrypoint: ["/bin/sh","-lc","ollama pull mistral"]
+    restart: "no"
+
+  backend:
+    build: ./backend
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - CHAT_MODEL=mistral:latest
+      - EMBED_MODEL=nomic-embed-text:latest
+      - CHROMA_PERSIST_DIR=/data/chroma
+      # Frontend origin(s) for CORS:
+      - ALLOW_ORIGINS=http://localhost:8501,http://127.0.0.1:8501
+    volumes:
+      - chroma_data:/data/chroma
+    depends_on:
+      ollama:
+        condition: service_healthy
+      pull-mistral:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - APP_TITLE=Chatbot
+    ports:
+      - "8501:8501"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  ollama:
+  chroma_data:
+
