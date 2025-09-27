@@ -7,10 +7,10 @@ services:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      # Config
-      - ./config/qdrant.yaml:/qdrant/config/production.yaml
-      # Data
+      - ./services/qdrant/config.yaml:/qdrant/config/production.yaml
       - ./data/qdrant:/qdrant/storage
+    networks:
+      - rag_network
 
   ollama:
     image: ollama/ollama:latest
@@ -19,7 +19,6 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      # Data
       - ./data/ollama:/root/.ollama
     deploy:
       resources:
@@ -28,3 +27,54 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    networks:
+      - rag_network
+
+  backend:
+    build:
+      context: ./services/backend
+      dockerfile: Dockerfile
+    container_name: rag_it_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/backend/src:/app/src
+      - ./data/uploads:/app/uploads
+      - ./data/processing:/app/processing
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - OLLAMA_HOST=ollama
+      - OLLAMA_PORT=11434
+      - EMBEDDING_SERVICE_URL=http://embeddings:8001
+    depends_on:
+      - qdrant
+      - ollama
+      - embeddings
+    restart: always
+    networks:
+      - rag_network
+
+  embeddings:
+    build:
+      context: ./services/embeddings
+      dockerfile: Dockerfile
+    container_name: rag_it_embeddings
+    ports:
+      - "8001:8001"
+    environment:
+      - EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: always
+    networks:
+      - rag_network
+
+networks:
+  rag_network:
+    driver: bridge
