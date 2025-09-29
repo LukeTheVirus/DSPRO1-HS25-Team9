@@ -45,4 +45,14 @@ async def health_check():
         status["services"]["embeddings"] = {"status": "error", "error": str(e)}
         status["status"] = "degraded"
     
+    # Check Unstructured Service
+    try:
+        async with httpx.AsyncClient() as client:
+            unstructured_url = os.getenv("UNSTRUCTURED_SERVICE_URL", "http://unstructured:8002")
+            resp = await client.get(f"{unstructured_url}/health", timeout=5.0)
+            status["services"]["unstructured"] = {"status": "connected"}
+    except Exception as e:
+        status["services"]["unstructured"] = {"status": "error", "error": str(e)}
+        status["status"] = "degraded"
+    
     return status

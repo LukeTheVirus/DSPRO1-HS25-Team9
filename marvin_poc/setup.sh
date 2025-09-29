@@ -30,7 +30,7 @@ echo "Starting services..."
 docker compose up -d
 
 # Wait and check
-sleep 5
+sleep 10
 echo "Checking health..."
 curl -s http://localhost:8000/health | python3 -m json.tool || echo "Backend not ready yet"
 

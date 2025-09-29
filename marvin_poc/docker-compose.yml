@@ -31,6 +31,7 @@ services:
       - rag_network
 
   backend:
+    image: rag_it/backend:latest
     build:
       context: ./services/backend
       dockerfile: Dockerfile
@@ -47,6 +48,7 @@ services:
       - OLLAMA_HOST=ollama
       - OLLAMA_PORT=11434
       - EMBEDDING_SERVICE_URL=http://embeddings:8001
+      - UNSTRUCTURED_SERVICE_URL=http://unstructured:8002
     depends_on:
       - qdrant
       - ollama
@@ -56,6 +58,7 @@ services:
       - rag_network
 
   embeddings:
+    image: rag_it/embeddings:latest
     build:
       context: ./services/embeddings
       dockerfile: Dockerfile
@@ -74,6 +77,20 @@ services:
     restart: always
     networks:
       - rag_network
+      
+  unstructured:
+    image: rag_it/unstructured:latest
+    build:
+      context: ./services/unstructured
+      dockerfile: Dockerfile
+    container_name: rag_it_unstructured
+    ports:
+      - "8002:8002"
+    restart: always
+    networks:
+      - rag_network
+    stop_grace_period: 20s
+    stop_signal: SIGKILL
 
 networks:
   rag_network:
