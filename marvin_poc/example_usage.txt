@@ -1,0 +1,37 @@
+# === RAG System Quick Commands ===
+
+# 1. Check watcher status
+curl http://localhost:8000/watch/status | jq
+
+# 2. Start watching a folder
+curl -X POST "http://localhost:8000/watch/start?directory=/app/uploads" | jq
+
+# 3. Stop watching
+curl -X POST http://localhost:8000/watch/stop | jq
+
+# 4. Search documents
+curl "http://localhost:8000/search?query=applications%20of%20ai%20in%20business%20decision%20making&limit=5" | jq
+
+curl "http://localhost:8000/search?query=latest%20algorithms%20for%20optimizing%20business%20operations&limit=5" | jq
+
+curl "http://localhost:8000/search?query=impact%20of%20generative%20ai%20on%20business%20models&limit=5" | jq
+
+curl "http://localhost:8000/search?query=overview%20of%20machine%20learning%20and%20AI%20concepts%20including%20neural%20networks%20and%20NLP&limit=5" | jq
+
+
+# 5. Health check (all services)
+curl http://localhost:8000/health | jq
+
+# 6. Create test file with example text
+echo "This is a test document about machine learning and AI.
+It contains information about neural networks, deep learning,
+and natural language processing. The document explains various
+concepts in artificial intelligence and their applications." > test_doc.txt
+
+# 7. Upload file manually
+curl -X POST http://localhost:8000/ingest/file \
+  -F "file=@test_doc.txt" \
+  -F "source_path=/path/to/test_doc.txt" | jq
+
+# 8. Delete file from index
+curl -X DELETE "http://localhost:8000/delete/by-path?source_path=/path/to/test_doc.txt" | jq

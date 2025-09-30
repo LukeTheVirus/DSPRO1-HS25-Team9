@@ -10,6 +10,10 @@ router = APIRouter()
 # Global state
 watcher_thread = None
 stop_watching = False
+processed_files = {}  # Track files with modification time: {path: mtime}
+watching_directory = None
+currently_processing = 0
+files_being_ingested = 0
 
 SUPPORTED_EXTENSIONS = {
     '.pdf', '.txt', '.docx', '.doc', '.pptx', '.ppt',
@@ -48,9 +52,10 @@ async def delete_file_async(file_path: Path):
 
 def watch_directory(directory: str):
     """Simple blocking watcher in a thread"""
-    global stop_watching
+    global stop_watching, processed_files, watching_directory, currently_processing, files_being_ingested
     
-    processed = {}  # Track files with modification time: {path: mtime}
+    processed_files = {}  # Reset on start
+    watching_directory = directory
     
     while not stop_watching:
         try:
@@ -59,28 +64,45 @@ def watch_directory(directory: str):
                 # Find all current files with their modification times
                 current_files = {}
                 for ext in SUPPORTED_EXTENSIONS:
-                    for file_path in path.glob(f"*{ext}"):
+                    for file_path in path.rglob(f"*{ext}"):
                         current_files[str(file_path)] = file_path.stat().st_mtime
                 
-                # Find new or modified files
+                # Count files that need processing
+                files_to_process = []
                 for file_path_str, mtime in current_files.items():
-                    if file_path_str not in processed:
-                        # New file
+                    if file_path_str not in processed_files:
+                        files_to_process.append(('new', file_path_str, mtime))
+                    elif processed_files[file_path_str] < mtime:
+                        files_to_process.append(('modified', file_path_str, mtime))
+                
+                # Also count deleted files
+                deleted_files = set(processed_files.keys()) - set(current_files.keys())
+                for file_path_str in deleted_files:
+                    files_to_process.append(('deleted', file_path_str, None))
+                
+                # Set count
+                currently_processing = len(files_to_process)
+                
+                # Process files
+                for action, file_path_str, mtime in files_to_process:
+                    files_being_ingested += 1
+                    currently_processing -= 1
+                    
+                    if action == 'new':
                         print(f"Found new file: {file_path_str}")
                         asyncio.run(ingest_file_async(Path(file_path_str)))
-                        processed[file_path_str] = mtime
-                    elif processed[file_path_str] < mtime:
-                        # Modified file
+                        processed_files[file_path_str] = mtime
+                    elif action == 'modified':
                         print(f"File modified: {file_path_str}")
+                        asyncio.run(delete_file_async(Path(file_path_str)))
                         asyncio.run(ingest_file_async(Path(file_path_str)))
-                        processed[file_path_str] = mtime
-                
-                # Find deleted files
-                deleted_files = set(processed.keys()) - set(current_files.keys())
-                for file_path_str in deleted_files:
-                    print(f"File deleted: {file_path_str}")
-                    asyncio.run(delete_file_async(Path(file_path_str)))
-                    del processed[file_path_str]
+                        processed_files[file_path_str] = mtime
+                    elif action == 'deleted':
+                        print(f"File deleted: {file_path_str}")
+                        asyncio.run(delete_file_async(Path(file_path_str)))
+                        del processed_files[file_path_str]
+                    
+                    files_being_ingested -= 1
                 
         except Exception as e:
             print(f"Watch error: {e}")
@@ -105,13 +127,23 @@ async def start_watching(directory: str):
 
 @router.post("/stop")
 async def stop_watching_endpoint():
-    global stop_watching
+    global stop_watching, watching_directory, currently_processing, files_being_ingested
     stop_watching = True
+    watching_directory = None
+    currently_processing = 0
+    files_being_ingested = 0
     return {"status": "stopped"}
 
 @router.get("/status")
 async def get_status():
-    global watcher_thread
+    global watcher_thread, processed_files, watching_directory, currently_processing, files_being_ingested
+    
+    is_watching = watcher_thread.is_alive() if watcher_thread else False
+    
     return {
-        "watching": watcher_thread.is_alive() if watcher_thread else False
+        "watching": is_watching,
+        "directory": watching_directory if is_watching else None,
+        "tracked_files": len(processed_files) if is_watching else 0,
+        "currently_processing": currently_processing if is_watching else 0,
+        "files_being_ingested": files_being_ingested if is_watching else 0
     }
