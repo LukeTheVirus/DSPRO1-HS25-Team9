@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from qdrant_client import QdrantClient
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 import os
+from pathlib import Path
 
 router = APIRouter()
 
@@ -12,34 +14,29 @@ async def delete_by_path(source_path: str):
         port=int(os.getenv("QDRANT_PORT", 6333))
     )
     
-    # Check if documents exist
-    existing = qdrant.scroll(
-        collection_name="documents",
-        scroll_filter={
-            "must": [
-                {"key": "source_path", "match": {"value": source_path}}
-            ]
-        },
-        limit=1
-    )
+    # Just delete by filename since that's what's actually stored
+    filename = Path(source_path).name
     
-    if not existing[0]:
-        raise HTTPException(status_code=404, detail=f"No documents found with path: {source_path}")
-    
-    # Delete all points with this source_path
-    qdrant.delete(
-        collection_name="documents",
-        points_selector={
-            "filter": {
-                "must": [
-                    {"key": "source_path", "match": {"value": source_path}}
+    try:
+        # Delete all points with this filename using proper Filter syntax
+        qdrant.delete(
+            collection_name="documents",
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="filename",
+                        match=MatchValue(value=filename)
+                    )
                 ]
-            }
-        }
-    )
+            )
+        )
+        print(f"Deleted all chunks for filename: {filename}")
+    except Exception as e:
+        print(f"Delete operation error: {e}")
     
     return {
         "deleted": source_path,
+        "filename": filename,
         "status": "success"
     }
 
@@ -51,46 +48,20 @@ async def delete_by_hash(file_hash: str):
         port=int(os.getenv("QDRANT_PORT", 6333))
     )
     
-    # Delete all points with this hash
+    # Delete using proper Filter syntax
     qdrant.delete(
         collection_name="documents",
-        points_selector={
-            "filter": {
-                "must": [
-                    {"key": "file_hash", "match": {"value": file_hash}}
-                ]
-            }
-        }
+        points_selector=Filter(
+            must=[
+                FieldCondition(
+                    key="file_hash",
+                    match=MatchValue(value=file_hash)
+                )
+            ]
+        )
     )
     
     return {
         "deleted_hash": file_hash,
         "status": "success"
     }
-
-@router.get("/list")
-async def list_documents():
-    """List all unique documents in the collection"""
-    qdrant = QdrantClient(
-        host=os.getenv("QDRANT_HOST", "qdrant"),
-        port=int(os.getenv("QDRANT_PORT", 6333))
-    )
-    
-    # Get all documents
-    results = qdrant.scroll(
-        collection_name="documents",
-        limit=10000
-    )
-    
-    # Extract unique documents
-    documents = {}
-    for point in results[0]:
-        path = point.payload.get("source_path")
-        if path and path not in documents:
-            documents[path] = {
-                "filename": point.payload.get("filename"),
-                "hash": point.payload.get("file_hash"),
-                "ingested_at": point.payload.get("ingested_at")
-            }
-    
-    return {"documents": documents, "total": len(documents)}
