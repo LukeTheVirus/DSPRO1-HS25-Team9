@@ -24,12 +24,10 @@ class QdrantService:
     def get_client(self) -> AsyncQdrantClient:
         self._validate_initialized()
         return self._client
-            
-    async def dispose(self):
-        print("Disposing QdrantService...")
-        self._validate_initialized()
-        await self._client.close()
-        self._initialized = False
+    
+    async def health_check(self) -> bool:
+        response = await self._client.get_collections()
+        return any(response.collections)
 
     async def _setup_db(self):
         if not await self._client.collection_exists(DOCUMENTS_COLLECTION):

@@ -13,6 +13,10 @@ class EmbeddingService:
         response = await self._http_client.post(url, json={"texts": texts})
         response.raise_for_status()
         return response.json().get("embeddings", [])
+    
+    async def health_check(self) -> bool:
+        resp = await self._http_client.get(f"{self._service_url}/health", timeout=5.0)
+        return resp.status_code == 200
 
     async def dispose(self):
         await self._http_client.aclose()

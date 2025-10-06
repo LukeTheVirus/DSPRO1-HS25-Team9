@@ -15,8 +15,7 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - OLLAMA_HOST=ollama
-      - OLLAMA_PORT=11434
+      - OLLAMA_SERVICE_URL=http://ollama:11434
       - EMBEDDING_SERVICE_URL=http://embeddings:8001
       - UNSTRUCTURED_SERVICE_URL=http://unstructured:8002
     depends_on:

@@ -1,58 +1,43 @@
-from fastapi import APIRouter
-from qdrant_client import QdrantClient
+from typing import Annotated
+from fastapi import APIRouter, Depends
+from dependency_injector.wiring import inject, Provide
+from ..container import Container
+from ..services.embedding_service import EmbeddingService
+from ..services.ollama_service import OllamaService
+from ..services.qdrant_service import QdrantService
+from ..services.unstructured_service import UnstructuredService
 import httpx
 import os
 
 router = APIRouter()
 
 @router.get("/health")
-async def health_check():
+@inject
+async def health_check(
+    embedding_service: Annotated[EmbeddingService, Depends(Provide[Container.embedding_service])],
+    ollama_service: Annotated[OllamaService, Depends(Provide[Container.ollama_service])],
+    qdrant_service: Annotated[QdrantService, Depends(Provide[Container.qdrant_service])],
+    unstructured_service: Annotated[UnstructuredService, Depends(Provide[Container.unstructured_service])],
+):
     status = {"status": "healthy", "services": {}}
     
-    # Check QDrant
+    status = await check_service("qdrant", status, qdrant_service.health_check)
+    status = await check_service("embeddings", status, embedding_service.health_check)
+    status = await check_service("unstructured", status, unstructured_service.health_check)
+    status = await check_service("ollama", status, ollama_service.health_check)
+
+    return status
+
+async def check_service(name: str, status: dict, check_func: callable):
     try:
-        qdrant = QdrantClient(
-            host=os.getenv("QDRANT_HOST", "qdrant"),
-            port=int(os.getenv("QDRANT_PORT", 6333))
-        )
-        collections = qdrant.get_collections()
-        status["services"]["qdrant"] = {
-            "status": "connected",
-            "collections": len(collections.collections)
-        }
+        if await check_func():
+            result = {"status": "healthy"}
+        else:
+            raise Exception("Service returned unhealthy status")
     except Exception as e:
-        status["services"]["qdrant"] = {"status": "error", "error": str(e)}
+        result = {"status": "error", "error": str(e)}
+        
+    status["services"][name] = result
+    if result["status"] == "error":
         status["status"] = "degraded"
-    
-    # Check Ollama
-    try:
-        async with httpx.AsyncClient() as client:
-            ollama_host = os.getenv("OLLAMA_HOST", "ollama")
-            ollama_port = int(os.getenv("OLLAMA_PORT", 11434))
-            resp = await client.get(f"http://{ollama_host}:{ollama_port}/api/tags", timeout=5.0)
-            status["services"]["ollama"] = {"status": "connected"}
-    except Exception as e:
-        status["services"]["ollama"] = {"status": "error", "error": str(e)}
-        status["status"] = "degraded"
-    
-    # Check Embedding Service
-    try:
-        async with httpx.AsyncClient() as client:
-            embedding_url = os.getenv("EMBEDDING_SERVICE_URL", "http://embeddings:8001")
-            resp = await client.get(f"{embedding_url}/health", timeout=5.0)
-            status["services"]["embeddings"] = {"status": "connected"}
-    except Exception as e:
-        status["services"]["embeddings"] = {"status": "error", "error": str(e)}
-        status["status"] = "degraded"
-    
-    # Check Unstructured Service
-    try:
-        async with httpx.AsyncClient() as client:
-            unstructured_url = os.getenv("UNSTRUCTURED_SERVICE_URL", "http://unstructured:8002")
-            resp = await client.get(f"{unstructured_url}/health", timeout=5.0)
-            status["services"]["unstructured"] = {"status": "connected"}
-    except Exception as e:
-        status["services"]["unstructured"] = {"status": "error", "error": str(e)}
-        status["status"] = "degraded"
-    
     return status
