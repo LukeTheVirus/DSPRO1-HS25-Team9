@@ -25,6 +25,19 @@ def ollama_config_mistral():
         "max_retries": 3
     }
 
+@pytest.fixture
+def ollama_config_qwen():
+    """
+    Fixture that returns a config for Ollama with qwen3:30b model.
+    """
+    return {
+        "provider": "ollama",
+        "model": "qwen3:30b",
+        "temperature": 0.5,
+        "max_retries": 2
+    }
+
+
 def pytest_configure(config):
     """
     Configure pytest.

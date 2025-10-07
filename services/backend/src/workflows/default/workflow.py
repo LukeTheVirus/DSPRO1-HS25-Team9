@@ -20,4 +20,4 @@ def default_workflow(user_input, **kwargs):
     messages = get_messages(prompt, input=user_input, **kwargs)
 
     re = llm.invoke(messages)
-    return re
+    return re.content
