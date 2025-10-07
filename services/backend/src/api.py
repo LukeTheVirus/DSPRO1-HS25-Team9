@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .routers import health, ingestion, search, delete, watcher
+from .routers import health, ingestion, search, delete, watcher, generate
 from .container import Container
 
 class Api:
@@ -17,6 +17,7 @@ class Api:
         app.include_router(search.router, prefix="/search")
         app.include_router(delete.router, prefix="/delete")
         app.include_router(watcher.router, prefix="/watch")
+        app.include_router(generate.router, prefix="/generate")
 
 
     def get_app(self):
@@ -26,5 +27,5 @@ class Api:
         return {
             "message": "RAG MVP Backend",
             "version": "0.1.0",
-            "endpoints": ["/health", "/docs", "/ingest", "/search"]
+            "endpoints": ["/health", "/docs", "/ingest", "/search", "/generate"]
         }

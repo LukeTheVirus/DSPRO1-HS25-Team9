@@ -6,7 +6,7 @@ from .model_builder import create_llm
 from .prompt_builder import build_langfuse_prompt, get_messages
 
 
-def default_workflow(data, **kwargs):
+def default_workflow(user_input, **kwargs):
     if 'config' in kwargs:
         config = kwargs['config']
     else:
@@ -14,18 +14,10 @@ def default_workflow(data, **kwargs):
 
     llm = create_llm(config)
 
-    if 'prompt_name' in kwargs:
-        prompt_name = kwargs['prompt']
-    else:
-        prompt_name = "default"
-    if 'tag' in kwargs:
-        tag = kwargs['tag']
-    else:
-        tag = "production"
+    from langchain_core.prompts import ChatPromptTemplate
+    prompt = ChatPromptTemplate.from_template("{input}")
 
-    prompt = build_langfuse_prompt(prompt_name, llm, tag)
-
-    messages = get_messages(data, **kwargs)
+    messages = get_messages(prompt, input=user_input, **kwargs)
 
     re = llm.invoke(messages)
     return re
