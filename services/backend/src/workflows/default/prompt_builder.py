@@ -1,9 +1,5 @@
 from langchain_core.prompts import ChatPromptTemplate
 
-
-from langchain_core.prompts import ChatPromptTemplate
-
-
 def build_langfuse_prompt(prompt_name, langfuse_client, target_tag):
     try:
         langfuse_prompt = langfuse_client.get_prompt(
@@ -18,8 +14,9 @@ def build_langfuse_prompt(prompt_name, langfuse_client, target_tag):
 
     messages = langfuse_prompt.prompt
 
-    # The langchain_prompt_template is now compiled from the messages
-    langchain_prompt_template = ChatPromptTemplate.from_messages(messages)
+    langchain_prompt_template = ChatPromptTemplate.from_messages(
+        messages, template_format="jinja2"
+    )
 
     return langchain_prompt_template
 
