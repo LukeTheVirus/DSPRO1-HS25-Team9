@@ -1,23 +1,23 @@
 import os
 
-from langfuse._client.observe import observe
+import langfuse
 
 from .config import create_config
 
 from .model_builder import create_llm
 from .prompt_builder import build_langfuse_prompt, get_messages
 
-@observe(name="default-workflow")
-def default_workflow(user_input, **kwargs):
+
+def langfuse_test(user_input, **kwargs):
     if 'config' in kwargs:
         config = kwargs['config']
     else:
-        config = create_config("google")
+        config = create_config("ollama")
 
     llm = create_llm(config)
 
-    from langchain_core.prompts import ChatPromptTemplate
-    prompt = ChatPromptTemplate.from_template("{input}")
+    lf_client = langfuse.get_client()
+    prompt = build_langfuse_prompt("test", lf_client, "production")
 
     messages = get_messages(prompt, input=user_input, **kwargs)
 

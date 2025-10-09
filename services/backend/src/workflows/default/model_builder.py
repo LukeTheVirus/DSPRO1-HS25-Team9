@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts.chat import ChatPromptTemplate
 from pydantic import SecretStr
 import os
+from langchain_ollama import ChatOllama
 
 def create_llm(config, max_tokens=None, timeout=None):
     """
@@ -42,6 +43,15 @@ def create_llm(config, max_tokens=None, timeout=None):
     elif provider == "deepseek":
         api_key = os.getenv("DEEPSEEK_API_KEY")
         return ChatDeepSeek(
+            model=config["model"],
+            temperature=config["temperature"],
+            max_tokens=max_tokens,
+            timeout=timeout,
+            max_retries=config["max_retries"],
+            api_key=SecretStr(api_key) if api_key else None
+        )
+    elif provider == "ollama":
+        return ChatOllama(
             model=config["model"],
             temperature=config["temperature"],
             max_tokens=max_tokens,
