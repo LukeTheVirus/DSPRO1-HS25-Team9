@@ -36,7 +36,7 @@ services:
       - "6334:6334"
     volumes:
       - ./services/qdrant/config.yaml:/qdrant/config/production.yaml
-      - ./services/qdrant:/qdrant/storage
+      - ./data/qdrant:/qdrant/storage
     networks:
       - rag_network
 

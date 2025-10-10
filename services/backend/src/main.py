@@ -1,20 +1,18 @@
 import uvicorn
-import asyncio
-from .api import Api
+from .api.api import Api
 from .container import Container
+from .services.service_module import ServiceModule
 
-async def start_services():
+def _setup_container():
     container = Container()
-    await container.qdrant_service().initialize()
+    container.load_module(ServiceModule)
     return container
 
-async def create_app():
-    container = await start_services()
-    api = Api(container)
-    return api.get_app()
-
 def main():
-    app = asyncio.run(create_app())
+    container = _setup_container()
+    
+    app = Api(container)
+    
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":

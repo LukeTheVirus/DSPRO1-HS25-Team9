@@ -6,7 +6,6 @@ from qdrant_client.models import Distance, VectorParams
 DOCUMENTS_COLLECTION = "documents"
 
 class QdrantService:
-    
     def __init__(self):
         self._initialized = False
         self._client = AsyncQdrantClient(
@@ -14,20 +13,24 @@ class QdrantService:
             port=int(os.getenv("QDRANT_PORT", 6333))
         )
         
-    async def initialize(self):
-        if self._initialized:
-            raise Exception("QdrantService is already initialized.")
-        print("Initializing QdrantService...")
-        self._initialized = True
-        await self._setup_db()
-        
-    def get_client(self) -> AsyncQdrantClient:
-        self._validate_initialized()
+    async def get_client(self) -> AsyncQdrantClient:
+        await self._validate_initialized()
         return self._client
     
     async def health_check(self) -> bool:
         response = await self._client.get_collections()
         return any(response.collections)
+    
+    async def _validate_initialized(self):
+        if not self._initialized:
+            await self.initialize()
+        
+    async def initialize(self):
+        if self._initialized:
+            return
+        print("Initializing QdrantService...")
+        await self._setup_db()
+        self._initialized = True
 
     async def _setup_db(self):
         if not await self._client.collection_exists(DOCUMENTS_COLLECTION):
@@ -36,7 +39,4 @@ class QdrantService:
                 vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
             )
         
-    def _validate_initialized(self):
-        if not self._initialized:
-            raise Exception("QdrantService is not initialized.")
     
