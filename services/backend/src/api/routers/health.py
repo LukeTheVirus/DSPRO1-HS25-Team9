@@ -1,9 +1,11 @@
 from typing import Awaitable, Callable
+
 from fastapi import APIRouter
+
 from ...container import Container
-from ...services.qdrant_service import QdrantService
 from ...services.embedding_service import EmbeddingService
 from ...services.ollama_service import OllamaService
+from ...services.qdrant_service import QdrantService
 from ...services.unstructured_service import UnstructuredService
 
 
@@ -19,9 +21,9 @@ class HealthRouter(APIRouter):
         embedding_service = self._container.resolve(EmbeddingService)
         unstructured_service = self._container.resolve(UnstructuredService)
         ollama_service = self._container.resolve(OllamaService)
-        
+
         status = {"status": "healthy", "services": {}}
-        
+
         await HealthRouter._check_service("qdrant", status, qdrant_service.health_check)
         await HealthRouter._check_service("embeddings", status, embedding_service.health_check)
         await HealthRouter._check_service("unstructured", status, unstructured_service.health_check)
@@ -29,7 +31,7 @@ class HealthRouter(APIRouter):
 
         return status
 
-    @staticmethod    
+    @staticmethod
     async def _check_service(name: str, status: dict, check_func: Callable[[], Awaitable[bool]]):
         try:
             if await check_func():
@@ -38,7 +40,7 @@ class HealthRouter(APIRouter):
                 raise Exception("Service returned unhealthy status")
         except Exception as e:
             result = {"status": "error", "error": str(e)}
-            
+
         status["services"][name] = result
         if result["status"] == "error":
             status["status"] = "degraded"

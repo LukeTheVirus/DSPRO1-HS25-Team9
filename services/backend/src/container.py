@@ -1,12 +1,13 @@
-from typing import Type, Dict, Any, TypeVar
 import inspect
+from typing import Type, Dict, Any, TypeVar
 
 T = TypeVar("T")
+
 
 class Container:
     def __init__(self):
         self._registrations: Dict[Type, Dict[str, Any]] = {}
-        
+
     def register(self, impl: Type):
         self._register(impl, lifetime="transient")
 
@@ -18,7 +19,7 @@ class Container:
         """Register a type with the container."""
         if impl in self._registrations:
             raise ValueError(f"Class {impl} is already registered.")
-        
+
         self._registrations[impl] = {"lifetime": lifetime, "instance": None}
 
     def resolve(self, cls: Type[T]) -> T:
@@ -53,8 +54,8 @@ class Container:
         """Load a module class (not instance) that registers services."""
         module = module_type()  # Instantiate the module type
         module.register_services(self)
-        
-        
+
+
 class Module:
     def register_services(self, container: Container):
         """Override this method to register services."""
