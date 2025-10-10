@@ -1,7 +1,8 @@
-from typing import Dict
-from pathlib import Path
 import asyncio
 import threading
+from pathlib import Path
+from typing import Dict
+
 import httpx
 
 SUPPORTED_EXTENSIONS = {
@@ -10,18 +11,19 @@ SUPPORTED_EXTENSIONS = {
     '.epub', '.msg', '.eml'
 }
 
+
 class WatcherService:
     def __init__(self):
         self.watchers: Dict[str, "Watcher"] = {}
 
     def start_watching(self, directory: str):
         directory = str(Path(directory).resolve())
-        
+
         if directory in self.watchers:
             return {"status": "already_watching"}
 
         Path(directory).mkdir(parents=True, exist_ok=True)
-        
+
         watcher = Watcher()
         self.watchers[directory] = watcher
 
@@ -48,30 +50,31 @@ class WatcherService:
                 "currently_processing": watcher.currently_processing,
                 "files_being_ingested": watcher.files_being_ingested
             })
-            
+
         return {"watchers": watchers}
-    
+
+
 class Watcher:
     def __init__(self):
         self.watching_directory = None
         self.processed_files = {}
         self.currently_processing = 0
         self.files_being_ingested = 0
-        
+
         self._is_running = False
         self._is_stopped = False
         self._watcher_thread = None
-        
+
     def start_watching(self, directory: str):
         if self._is_running:
             raise Exception("Already watching a directory")
         self._is_running = True
         self.watching_directory = directory
-        
+
         self._watcher_thread = threading.Thread(target=self._start_thread)
         self._watcher_thread.daemon = True
         self._watcher_thread.start()
-        
+
     def stop_watching(self):
         if not self._is_running or self._is_stopped:
             return
@@ -94,7 +97,7 @@ class Watcher:
                     for ext in SUPPORTED_EXTENSIONS:
                         for file_path in path.rglob(f"*{ext}"):
                             current_files[str(file_path)] = file_path.stat().st_mtime
-                    
+
                     # Count files that need processing
                     files_to_process = []
                     for file_path_str, mtime in current_files.items():
@@ -102,15 +105,15 @@ class Watcher:
                             files_to_process.append(('new', file_path_str, mtime))
                         elif self.processed_files[file_path_str] < mtime:
                             files_to_process.append(('modified', file_path_str, mtime))
-                    
+
                     # Also count deleted files
                     deleted_files = set(self.processed_files.keys()) - set(current_files.keys())
                     for file_path_str in deleted_files:
                         files_to_process.append(('deleted', file_path_str, None))
-                    
+
                     # Set count
                     self.currently_processing = len(files_to_process)
-                    
+
                     # Process files
                     for action, file_path_str, mtime in files_to_process:
                         self.files_being_ingested += 1
@@ -131,7 +134,7 @@ class Watcher:
                             del self.processed_files[file_path_str]
 
                         self.files_being_ingested -= 1
-                    
+
             except Exception as e:
                 print(f"Watch error: {e}")
 

@@ -1,6 +1,8 @@
-from qdrant_client.models import Filter, FieldCondition, MatchValue
 from pathlib import Path
-from fastapi import APIRouter, status
+
+from fastapi import APIRouter
+from qdrant_client.models import Filter, FieldCondition, MatchValue
+
 from ...container import Container
 from ...services.qdrant_service import QdrantService, DOCUMENTS_COLLECTION
 
@@ -17,10 +19,10 @@ class DeleteRouter(APIRouter):
         """Delete all chunks from a specific file path"""
         qdrant_service = self._container.resolve(QdrantService)
         qdrant = await qdrant_service.get_client()
-        
+
         # Just delete by filename since that's what's actually stored
         filename = Path(source_path).name
-        
+
         try:
             await qdrant.delete(
                 collection_name=DOCUMENTS_COLLECTION,
@@ -36,14 +38,14 @@ class DeleteRouter(APIRouter):
         except Exception as e:
             print(f"Delete operation error: {e}")
             return {"status": "error"}
-        
+
         return {"status": "success"}
 
     async def delete_by_hash(self, file_hash: str):
         """Delete all chunks from a specific file hash"""
         qdrant_service = self._container.resolve(QdrantService)
         qdrant = await qdrant_service.get_client()
-        
+
         try:
             await qdrant.delete(
                 collection_name=DOCUMENTS_COLLECTION,

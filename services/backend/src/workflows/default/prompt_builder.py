@@ -1,5 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate
 
+
 def build_langfuse_prompt(prompt_name, langfuse_client, target_tag):
     try:
         langfuse_prompt = langfuse_client.get_prompt(
@@ -11,7 +12,6 @@ def build_langfuse_prompt(prompt_name, langfuse_client, target_tag):
         # As a fallback, create a simple template. In a real application, you might handle this differently.
         return ChatPromptTemplate.from_template("{input}")
 
-
     messages = langfuse_prompt.prompt
 
     langchain_prompt_template = ChatPromptTemplate.from_messages(
@@ -19,6 +19,7 @@ def build_langfuse_prompt(prompt_name, langfuse_client, target_tag):
     )
 
     return langchain_prompt_template
+
 
 def get_messages(langchain_prompt_template, **kwargs):
     """

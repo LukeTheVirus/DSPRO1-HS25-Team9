@@ -1,9 +1,9 @@
 from langfuse._client.observe import observe
 
 from .config import create_config
-
 from .model_builder import create_llm
 from .prompt_builder import get_messages
+
 
 @observe(name="default-workflow")
 def default_workflow(user_input, **kwargs):

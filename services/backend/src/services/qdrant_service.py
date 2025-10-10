@@ -1,9 +1,10 @@
 import os
+
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-
 DOCUMENTS_COLLECTION = "documents"
+
 
 class QdrantService:
     def __init__(self):
@@ -12,19 +13,19 @@ class QdrantService:
             host=os.getenv("QDRANT_HOST", "qdrant"),
             port=int(os.getenv("QDRANT_PORT", 6333))
         )
-        
+
     async def get_client(self) -> AsyncQdrantClient:
         await self._validate_initialized()
         return self._client
-    
+
     async def health_check(self) -> bool:
         response = await self._client.get_collections()
         return any(response.collections)
-    
+
     async def _validate_initialized(self):
         if not self._initialized:
             await self.initialize()
-        
+
     async def initialize(self):
         if self._initialized:
             return
@@ -38,5 +39,3 @@ class QdrantService:
                 collection_name=DOCUMENTS_COLLECTION,
                 vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
             )
-        
-    

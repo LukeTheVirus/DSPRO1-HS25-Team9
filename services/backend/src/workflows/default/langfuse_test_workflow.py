@@ -1,7 +1,6 @@
 import langfuse
 
 from .config import create_config
-
 from .model_builder import create_llm
 from .prompt_builder import build_langfuse_prompt, get_messages
 

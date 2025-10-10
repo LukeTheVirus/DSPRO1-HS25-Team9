@@ -1,11 +1,13 @@
 from fastapi import FastAPI
-from ..container import Container
+
 from .routers.delete import DeleteRouter
 from .routers.generate import GenerateRouter
 from .routers.health import HealthRouter
 from .routers.ingestion import IngestionRouter
 from .routers.search import SearchRouter
 from .routers.watcher import WatcherRouter
+from ..container import Container
+
 
 class Api(FastAPI):
     def __init__(self, container: Container, **kwargs):

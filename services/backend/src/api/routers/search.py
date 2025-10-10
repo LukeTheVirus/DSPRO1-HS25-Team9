@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from ...container import Container
 from ...services.embedding_service import EmbeddingService
 from ...services.qdrant_service import QdrantService, DOCUMENTS_COLLECTION
@@ -24,7 +25,7 @@ class SearchRouter(APIRouter):
             query_vector=query_embedding,
             limit=limit
         )
-        
+
         hits = []
         for result in results:
             hits.append({
@@ -33,5 +34,5 @@ class SearchRouter(APIRouter):
                 "type": result.payload.get("type"),
                 "filename": result.payload.get("filename")
             })
-        
+
         return {"query": query, "results": hits}

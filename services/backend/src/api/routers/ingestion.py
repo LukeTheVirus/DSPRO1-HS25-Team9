@@ -1,12 +1,14 @@
-import uuid
 import hashlib
+import uuid
 from datetime import datetime
-from qdrant_client.models import PointStruct
+
 from fastapi import APIRouter, UploadFile, File
+from qdrant_client.models import PointStruct
+
 from ...container import Container
+from ...services.embedding_service import EmbeddingService
 from ...services.qdrant_service import QdrantService, DOCUMENTS_COLLECTION
 from ...services.unstructured_service import UnstructuredService
-from ...services.embedding_service import EmbeddingService
 
 
 class IngestionRouter(APIRouter):
@@ -18,12 +20,12 @@ class IngestionRouter(APIRouter):
 
     async def ingest_file(self, file: UploadFile = File(...), source_path: str = None):
         qdrant_service = self._container.resolve(QdrantService)
-        
+
         content = await file.read()
         file_hash = hashlib.sha256(content).hexdigest()
-        
+
         qdrant = await qdrant_service.get_client()
-        
+
         documents, _ = await qdrant.scroll(
             collection_name=DOCUMENTS_COLLECTION,
             scroll_filter={"must": [
@@ -41,7 +43,7 @@ class IngestionRouter(APIRouter):
 
         unstructured_service = self._container.resolve(UnstructuredService)
         embedding_service = self._container.resolve(EmbeddingService)
-        
+
         parsed_document = await unstructured_service.parse_document(file.filename, file.content_type, content)
         chunks = parsed_document.get("chunks", [])
 
