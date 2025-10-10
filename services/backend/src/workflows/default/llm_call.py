@@ -4,7 +4,7 @@ import os
 from langfuse._client.get_client import get_client
 from langfuse._client.observe import observe
 
-from backend.main.prompt_builder import get_messages
+from .prompt_builder import get_messages
 
 @observe(name="example_call")
 def make_call_example(llm, **kwargs):

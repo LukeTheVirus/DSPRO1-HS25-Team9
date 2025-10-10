@@ -1,5 +1,3 @@
-import os
-
 import langfuse
 
 from .config import create_config
