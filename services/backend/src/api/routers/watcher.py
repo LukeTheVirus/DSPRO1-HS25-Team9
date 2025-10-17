@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from ...container import Container
-from ...services.watcher_service import WatcherService
+from ...services.watcher.watcher_service import WatcherService
 
 
 class WatcherRouter(APIRouter):

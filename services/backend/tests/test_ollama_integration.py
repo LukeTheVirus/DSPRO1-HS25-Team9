@@ -2,7 +2,7 @@ import os
 import pytest
 
 # Import the workflow controller
-from services.backend.src.workflow_controller import call_workflow
+from workflows.workflow_controller import call_workflow
 
 # Skip all tests in this module if the environment variable is not set.
 pytestmark = pytest.mark.skipif(not os.getenv("OLLAMA_SERVICE_URL"), reason="OLLAMA_SERVICE_URL environment variable is not set. Skipping integration tests.")
