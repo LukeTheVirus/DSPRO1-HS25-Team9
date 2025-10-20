@@ -1,8 +1,8 @@
 import langfuse
 
-from .config import create_config
-from .model_builder import create_llm
-from .prompt_builder import build_langfuse_prompt, get_messages
+from services.backend.src.workflows.helpers.config import create_config
+from services.backend.src.workflows.helpers.model_builder import create_llm
+from services.backend.src.workflows.helpers.prompt_builder import build_langfuse_prompt, get_messages
 
 
 def langfuse_test(user_input, **kwargs):

@@ -1,8 +1,8 @@
 from langfuse._client.observe import observe
 
-from .config import create_config
-from .model_builder import create_llm
-from .prompt_builder import get_messages
+from services.backend.src.workflows.helpers.config import create_config
+from services.backend.src.workflows.helpers.model_builder import create_llm
+from services.backend.src.workflows.helpers.prompt_builder import get_messages
 
 
 @observe(name="default-workflow")
