@@ -3,7 +3,7 @@ import unittest
 import pytest
 
 # Import the workflow controller
-from services.backend.src.workflow_controller import call_workflow
+from workflows.workflow_controller import call_workflow
 
 @pytest.mark.integration
 class TestWorkflowControllerOllamaIntegration(unittest.TestCase):

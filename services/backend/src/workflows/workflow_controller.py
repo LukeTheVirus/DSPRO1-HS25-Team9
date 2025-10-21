@@ -1,4 +1,4 @@
-from .workflows.default.workflow import default_workflow
+from .default.workflow import default_workflow
 
 
 def call_workflow(user_query, workflow_name: str = "default", **kwargs):

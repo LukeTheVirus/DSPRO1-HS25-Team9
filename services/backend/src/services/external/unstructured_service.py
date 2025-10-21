@@ -10,9 +10,9 @@ class UnstructuredService:
         if not self._service_url:
             raise ValueError("UNSTRUCTURED_SERVICE_URL environment variable is not set.")
 
-    async def parse_document(self, file_name: str, content_type: str, content: bytes) -> dict:
+    async def parse_document(self, content_type: str, content: bytes) -> dict:
         url = f"{self._service_url}/parse"
-        files = {"file": (file_name, content, content_type)}
+        files = {"file": (content, content_type)}
         response = await self._http_client.post(url, files=files)
         return response.json()
 

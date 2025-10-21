@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from ...workflow_controller import call_workflow
+from ...workflows.workflow_controller import call_workflow
 
 
 class GenerateRouter(APIRouter):

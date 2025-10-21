@@ -3,10 +3,10 @@ from typing import Awaitable, Callable
 from fastapi import APIRouter
 
 from ...container import Container
-from ...services.embedding_service import EmbeddingService
-from ...services.ollama_service import OllamaService
-from ...services.qdrant_service import QdrantService
-from ...services.unstructured_service import UnstructuredService
+from ...services.external.embedding_service import EmbeddingService
+from ...services.external.ollama_service import OllamaService
+from ...services.external.qdrant_service import QdrantService
+from ...services.external.unstructured_service import UnstructuredService
 
 
 class HealthRouter(APIRouter):
