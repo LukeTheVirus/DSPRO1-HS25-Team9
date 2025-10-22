@@ -42,6 +42,8 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    volumes:
+      - ./data/ollama:/root/.ollama
     restart: always
     container_name: rag_it_ollama
     ports:
