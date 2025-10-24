@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # ----------------------------
 
 @dataclass
-class OllamaModelConfig:
+class NLIOllamaModelConfig:
     """Configuration for Ollama models and clients."""
     embedding_model_name: str = 'mxbai-embed-large'
     nli_model_name: str = 'qwen3-coder:30b'
@@ -175,7 +175,7 @@ class OllamaClients:
     gpu: ollama.Client
 
 
-def build_ollama_clients(config: OllamaModelConfig) -> OllamaClients:
+def build_ollama_clients(config: NLIOllamaModelConfig) -> OllamaClients:
     """Initializes and returns Ollama clients."""
     try:
         cpu_client = ollama.Client(host=config.cpu_client_host)
@@ -389,7 +389,7 @@ def verify_generation_against_truth(
         ground_truth_text: str,
         generated_text: str,
         language: str,
-        models: OllamaModelConfig,
+        models: NLIOllamaModelConfig,
         threshold_to_pass: Thresholds,
         pass_criteria: PassCriteria
 ) -> VerificationReport:
@@ -538,7 +538,7 @@ if __name__ == "__main__":
         )
 
     # --- Assemble configs ---
-    model_cfg = OllamaModelConfig(
+    model_cfg = NLIOllamaModelConfig(
         embedding_model_name=args.embed_model,
         nli_model_name=args.nli_model,
         cpu_client_host=args.cpu_host,
