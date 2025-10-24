@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 
 from ...workflows.workflow_controller import call_workflow
 
@@ -10,7 +10,7 @@ class GenerateRouter(APIRouter):
 
         self.post("")(self.generate_response)
 
-    async def generate_response(self, query: str, workflow_name: str = "default", **kwargs):
+    async def generate_response(self, query: str = Body(...), workflow_name: str = Body("default"), config: dict | None = Body(default=None)):
         """
         Generate a response using the specified workflow.
         
@@ -21,5 +21,9 @@ class GenerateRouter(APIRouter):
         Returns:
             The generated response from the workflow
         """
-        response = call_workflow(query, workflow_name=workflow_name, **kwargs)
+        workflow_kwargs = {}
+        if config is not None:
+            workflow_kwargs["config"] = config
+
+        response = call_workflow(query, workflow_name=workflow_name, **workflow_kwargs)
         return {"query": query, "response": response}

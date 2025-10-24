@@ -43,3 +43,5 @@ echo "  - Qdrant: http://localhost:6333"
 echo "  - Ollama: http://localhost:11434"
 echo ""
 echo "Logs: cd $PROJECT_ROOT && docker compose logs -f"
+
+echo "to pull a model (e.g. mistral), run: docker exec -it rag_it_ollama ollama pull mistral"
