@@ -52,13 +52,15 @@ def create_llm(config, max_tokens=None, timeout=None):
             api_key=SecretStr(api_key) if api_key else None
         )
     elif provider == "ollama":
+        base_url = config.get("base_url") or os.getenv("OLLAMA_SERVICE_URL", "http://ollama:11434")
+        print(f"ChatOllama using base_url: {base_url}")
         return ChatOllama(
             model=config["model"],
             temperature=config["temperature"],
             max_tokens=max_tokens,
             timeout=timeout,
             max_retries=config["max_retries"],
-            api_key=SecretStr(api_key) if api_key else None
+            base_url=base_url,
         )
     else:
         raise ValueError(f"Unsupported provider: {provider}")
