@@ -4,11 +4,11 @@ import pytest
 @pytest.fixture
 def ollama_config():
     """
-    Fixture that returns a config for Ollama with llama2 model.
+    Fixture that returns a config for Ollama with gpt-oss:20b model.
     """
     return {
         "provider": "ollama",
-        "model": "llama2",
+        "model": "gpt-oss:20b",
         "temperature": 0.7,
         "max_retries": 2
     }
