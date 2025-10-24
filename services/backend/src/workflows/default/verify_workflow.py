@@ -1,7 +1,10 @@
+from typing import Tuple
+
 import langfuse
 
 from services.backend.src.workflows.helpers.config import create_config
 from services.backend.src.workflows.helpers.model_builder import create_llm
+from services.backend.src.workflows.helpers.nli_verification_ollama import verify_generation_against_truth
 from services.backend.src.workflows.helpers.prompt_builder import build_langfuse_prompt, get_messages
 
 
@@ -19,4 +22,14 @@ def verify_workflow(user_input, **kwargs):
     messages = get_messages(prompt, input=user_input, **kwargs)
 
     re = llm.invoke(messages)
+
+    context, language = placeholder_for_get_context()
+
+    verify_report = verify_generation_against_truth(context, re, language)
     return re.content
+
+
+def placeholder_for_get_context() -> Tuple[str, str]:
+    return "This is great context", "english"
+
+
