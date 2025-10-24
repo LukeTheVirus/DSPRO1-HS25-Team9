@@ -1,12 +1,13 @@
 from fastapi import APIRouter
 
+from ...container import Container
 from ...workflows.workflow_controller import call_workflow
 
 
 class GenerateRouter(APIRouter):
     def __init__(self, container, **kwargs):
         super().__init__(**kwargs)
-        self._container = container
+        self._container: Container = container  # Added type hint for clarity
 
         self.post("")(self.generate_response)
 
@@ -21,5 +22,11 @@ class GenerateRouter(APIRouter):
         Returns:
             The generated response from the workflow
         """
-        response = call_workflow(query, workflow_name=workflow_name, **kwargs)
+        # *** CHANGE: Pass the container to the workflow controller ***
+        response = await call_workflow(
+            self._container, 
+            query, 
+            workflow_name=workflow_name, 
+            **kwargs
+        )
         return {"query": query, "response": response}
