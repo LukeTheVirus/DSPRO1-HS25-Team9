@@ -1,6 +1,9 @@
 # ide settings
 .idea/*
 
+# local emmbedding model
+services/embeddings/BAAI/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

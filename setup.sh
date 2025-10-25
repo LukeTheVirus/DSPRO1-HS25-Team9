@@ -32,6 +32,17 @@ docker compose build
 echo "Starting services..."
 docker compose up -d
 
+# --- Automatically pull required models ---
+echo "Pulling Ollama models... (this may take a few minutes)"
+
+# Use the service name 'rag_it_ollama' from docker-compose.yml
+docker compose exec rag_it_ollama ollama pull gpt-oss:20b
+docker compose exec rag_it_ollama ollama pull mistral
+docker compose exec rag_it_ollama ollama pull qwen3:30b
+docker compose exec rag_it_ollama ollama pull qwen3-coder:30b
+
+echo "Ollama models are ready!"
+
 # Wait and check
 sleep 10
 echo "Checking health..."

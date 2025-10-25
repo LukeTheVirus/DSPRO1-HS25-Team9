@@ -2,6 +2,8 @@
 from __future__ import annotations
 import json
 import re
+import os
+import asyncio
 from dataclasses import dataclass, asdict
 from typing import List, Any, Callable, Optional, Tuple
 
@@ -9,8 +11,8 @@ import nltk
 import numpy as np
 import ollama
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-
+# Import the EmbeddingService
+from ...services.external.embedding_service import EmbeddingService
 
 # ----------------------------
 # Config & Data Structures
@@ -19,12 +21,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 @dataclass
 class NLIOllamaModelConfig:
     """Configuration for Ollama models and clients."""
-    embedding_model_name: str = 'mxbai-embed-large'
+    # Removed embedding_model_name
     nli_model_name: str = 'qwen3-coder:30b'
-    # Host for CPU-optimized tasks like embeddings
-    cpu_client_host: str = 'http://localhost:11435'
+    # Removed cpu_client_host
     # Host for GPU-accelerated tasks like NLI
     gpu_client_host: str = 'http://localhost:11434'
+
 
 @dataclass
 class Thresholds:
@@ -33,6 +35,7 @@ class Thresholds:
     max_sim_coverage: float = 0.3
     top_k_retrieval: int = 5
 
+
 @dataclass
 class PassCriteria:
     min_supported_rate: float = 0.70
@@ -40,12 +43,14 @@ class PassCriteria:
     min_coverage: float = 0.80
     zero_contradictions: bool = True  # no contradiction > 0.5
 
+
 @dataclass
 class EvidenceScores:
     entailment: float
     contradiction: float
     supporting_evidence: str
     conflicting_evidence: str
+
 
 @dataclass
 class SentenceResult:
@@ -57,17 +62,20 @@ class SentenceResult:
     conflicting_evidence: Optional[str] = None
     note: Optional[str] = None  # "contested" / "unsupported" reasons
 
+
 @dataclass
 class CoverageResult:
     coverage: float
     uncovered_chunks: int
     uncovered_examples: List[str]
 
+
 @dataclass
 class TopContradiction:
     sentence: Optional[str]
     evidence: Optional[str]
     score: float
+
 
 @dataclass
 class VerificationReport:
@@ -80,6 +88,7 @@ class VerificationReport:
     unsupported: List[SentenceResult]
     per_sentence: List[SentenceResult]
     passed: bool
+
 
 # ----------------------------
 # NLI Prompting
@@ -108,12 +117,13 @@ def load_text(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
+
 def safe_nli(client, model, system, user):
     r = client.chat(model=model,
-                    messages=[{"role":"system","content": system},
-                              {"role":"user","content": user}],
-                    options={"temperature":0}, stream=False)
-    msg = (r.get("message") or {}).get("content","").strip()
+                    messages=[{"role": "system", "content": system},
+                              {"role": "user", "content": user}],
+                    options={"temperature": 0}, stream=False)
+    msg = (r.get("message") or {}).get("content", "").strip()
     if not msg:
         r = client.generate(model=model, prompt=system + "\n\n" + user, stream=False)
         msg = (r.get("response") or "").strip()
@@ -122,6 +132,7 @@ def safe_nli(client, model, system, user):
     except Exception:
         m = re.search(r"\{.*\}", msg, re.DOTALL)
         return json.loads(m.group(0)) if m else None
+
 
 def load_draft_from_json(path: str, keys: List[str]) -> str:
     """Loads and concatenates specified keys from a JSON file."""
@@ -161,7 +172,12 @@ def sentence_splitter(text: str, language: str = "german") -> List[str]:
 
 def cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
     """Calculates cosine similarity between two numpy vectors."""
-    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    # Add check for zero vectors
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0.0
+    return np.dot(v1, v2) / (norm_v1 * norm_v2)
 
 
 # ----------------------------
@@ -170,22 +186,24 @@ def cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
 
 @dataclass
 class OllamaClients:
-    """Container for CPU and GPU Ollama clients."""
-    cpu: ollama.Client
+    """Container for EmbeddingService and GPU Ollama client."""
+    embed_service: EmbeddingService
     gpu: ollama.Client
 
 
-def build_ollama_clients(config: NLIOllamaModelConfig) -> OllamaClients:
+def build_ollama_clients(
+        embed_service: EmbeddingService,
+        config: NLIOllamaModelConfig
+) -> OllamaClients:
     """Initializes and returns Ollama clients."""
     try:
-        cpu_client = ollama.Client(host=config.cpu_client_host)
         gpu_client = ollama.Client(host=config.gpu_client_host)
-        # Ping servers to ensure they are available
-        cpu_client.list()
+        # Ping NLI server to ensure it's available
         gpu_client.list()
-        return OllamaClients(cpu=cpu_client, gpu=gpu_client)
+        # Assume embed_service is healthy if passed in
+        return OllamaClients(embed_service=embed_service, gpu=gpu_client)
     except Exception as e:
-        print(f"Error connecting to Ollama servers. Please ensure they are running.")
+        print(f"Error connecting to Ollama GPU server. Please ensure it is running.")
         raise e
 
 
@@ -196,50 +214,47 @@ class OllamaRetrieverIndex:
     chunk_embeddings: np.ndarray
 
 
-def _get_embedding(client: ollama.Client, model_name: str, chunk: str) -> np.ndarray:
-    """Helper function to get a single embedding."""
-    return np.array(client.embeddings(model=model_name, prompt=chunk)['embedding'])
-
-
-def build_retriever(
+async def build_retriever(
         chunks: List[str],
-        model_name: str,
-        client: ollama.Client
+        embed_service: EmbeddingService
 ) -> OllamaRetrieverIndex:
     """Generates embeddings for all chunks in parallel to create a retriever index."""
-    print(f"Generating embeddings for {len(chunks)} chunks using '{model_name}'...")
-    embeddings = [None] * len(chunks)
+    print(f"Generating embeddings for {len(chunks)} chunks using EmbeddingService...")
+    if not chunks:
+        return OllamaRetrieverIndex(chunks=[], chunk_embeddings=np.array([]))
 
-    with ThreadPoolExecutor() as executor:
-        # Map each chunk to a future
-        future_to_index = {
-            executor.submit(_get_embedding, client, model_name, chunk): i
-            for i, chunk in enumerate(chunks)
-        }
+    try:
+        # Note: The double call to embed_texts in the original file was
+        # redundant. This is a cleaner version.
+        embeddings_list = await embed_service.embed_texts(chunks)
 
-        for future in as_completed(future_to_index):
-            index = future_to_index[future]
-            try:
-                embeddings[index] = future.result()
-            except Exception as e:
-                print(f"Could not generate embedding for chunk {index}: {e}")
-                # Handle error, e.g., by creating a zero-vector
-                # Note: The embedding dimension needs to be known for this.
-                # For simplicity, we'll skip this chunk in case of an error.
+        if not embeddings_list:
+            print("Error: Embedding service returned no embeddings.")
+            return OllamaRetrieverIndex(chunks=chunks, chunk_embeddings=np.array([]))  # Returns object
 
-    # Filter out any failed embeddings before converting to numpy array
-    successful_embeddings = [emb for emb in embeddings if emb is not None]
-    return OllamaRetrieverIndex(chunks=chunks, chunk_embeddings=np.array(successful_embeddings))
+        return OllamaRetrieverIndex(chunks=chunks, chunk_embeddings=np.array(embeddings_list)) # Returns object
 
-def retrieve_evidence(
+    except Exception as e:
+        print(f"Could not generate embeddings: {e}")
+        # Return an empty index INSTEAD of None
+        return OllamaRetrieverIndex(chunks=chunks, chunk_embeddings=np.array([]))
+
+async def retrieve_evidence(
         query: str,
         retr: OllamaRetrieverIndex,
-        client: ollama.Client,
-        model_name: str,
+        embed_service: EmbeddingService,
         top_k: int
 ) -> List[str]:
     """Retrieves top_k evidence chunks based on semantic similarity."""
-    query_embedding = np.array(client.embeddings(model=model_name, prompt=query)['embedding'])
+    if retr.chunk_embeddings.size == 0:
+        return []
+
+    query_embedding_list = await embed_service.embed_texts([query])
+    if not query_embedding_list:
+        print(f"Warning: Could not embed query: {query}")
+        return []
+
+    query_embedding = np.array(query_embedding_list[0])
     sims = [cosine_similarity(query_embedding, chunk_emb) for chunk_emb in retr.chunk_embeddings]
     top_indices = sorted(range(len(sims)), key=lambda j: sims[j], reverse=True)[:top_k]
     return [retr.chunks[i] for i in top_indices]
@@ -292,22 +307,27 @@ def nli_scores_for_evidence(
 # Coverage Calculation
 # ----------------------------
 
-def semantic_coverage(
+async def semantic_coverage(
         transcript_chunks: List[str],
         transcript_embs: np.ndarray,
         draft_sents: List[str],
-        client: ollama.Client,
-        model_name: str,
+        embed_service: EmbeddingService,
         max_sim_threshold: float
 ) -> CoverageResult:
     """Calculates how well the draft covers the transcript."""
     if not draft_sents:
         return CoverageResult(0.0, len(transcript_chunks), transcript_chunks[:10])
 
-    draft_embs = np.array([
-        np.array(client.embeddings(model=model_name, prompt=s)['embedding'])
-        for s in draft_sents
-    ])
+    if transcript_embs.size == 0:
+        print("Warning: Cannot calculate coverage, no transcript embeddings found.")
+        return CoverageResult(0.0, len(transcript_chunks), transcript_chunks[:10])
+
+    draft_embs_list = await embed_service.embed_texts(draft_sents)
+    if not draft_embs_list:
+        print("Warning: Could not get draft embeddings for coverage calculation.")
+        return CoverageResult(0.0, len(transcript_chunks), transcript_chunks[:10])
+
+    draft_embs = np.array(draft_embs_list)
 
     uncovered = []
     for i, chunk_emb in enumerate(transcript_embs):
@@ -338,6 +358,7 @@ and have three keys:
 
 Do not provide any text or explanation outside of this JSON object.
 """
+
 
 # --- 2. Refactor the NLI function ---
 def nli_scores_for_evidence_batch(
@@ -381,11 +402,13 @@ def nli_scores_for_evidence_batch(
         print(f"    - Warning: Batched NLI failed: {e}")
         return EvidenceScores(0.0, 0.0, "N/A", "N/A")
 
+
 # ----------------------------
 # Core Verification Pipeline
 # ----------------------------
 
-def verify_generation_against_truth(
+async def verify_generation_against_truth(
+        embed_service: EmbeddingService,  # Added EmbeddingService
         ground_truth_text: str,
         generated_text: str,
         language: str,
@@ -395,13 +418,14 @@ def verify_generation_against_truth(
 ) -> VerificationReport:
     """Main function to verify a draft against a transcript using Ollama."""
     # 1) Setup
-    clients = build_ollama_clients(models)
+    # Pass the embed_service to the client builder
+    clients = build_ollama_clients(embed_service, models)
     cleaned = default_transcript_cleaner(ground_truth_text)
     transcript_chunks = sentence_splitter(cleaned, language=language)
     draft_sents = [s for s in sentence_splitter(generated_text, language=language) if s.strip()]
 
-    # 2) Build Retriever
-    retr = build_retriever(transcript_chunks, models.embedding_model_name, clients.cpu)
+    # 2) Build Retriever (now async)
+    retr = await build_retriever(transcript_chunks, clients.embed_service)
 
     # 3) Per-sentence NLI
     per_sentence, contested, unsupported = [], [], []
@@ -409,7 +433,10 @@ def verify_generation_against_truth(
     top_contra = TopContradiction(None, None, -1.0)
 
     for sent in draft_sents:
-        evidence = retrieve_evidence(sent, retr, clients.cpu, models.embedding_model_name, threshold_to_pass.top_k_retrieval)
+        # Retrieve evidence (now async)
+        evidence = await retrieve_evidence(
+            sent, retr, clients.embed_service, threshold_to_pass.top_k_retrieval
+        )
 
         if not evidence:
             res = SentenceResult(sent, False, 0.0, 0.0, None, None, "No evidence retrieved")
@@ -418,7 +445,9 @@ def verify_generation_against_truth(
             per_sentence.append(res)
             continue
 
+        # NLI call remains synchronous, using the GPU client
         es = nli_scores_for_evidence(clients.gpu, models.nli_model_name, sent, evidence)
+
         if es.contradiction > top_contra.score:
             top_contra = TopContradiction(sent, es.conflicting_evidence, es.contradiction)
 
@@ -440,10 +469,10 @@ def verify_generation_against_truth(
     supported_rate = (supported / len(draft_sents)) if draft_sents else 1.0
     hallucination_rate = (hallucinated / len(draft_sents)) if draft_sents else 0.0
 
-    # 4) Coverage
-    coverage = semantic_coverage(
+    # 4) Coverage (now async)
+    coverage = await semantic_coverage(
         transcript_chunks, retr.chunk_embeddings, draft_sents,
-        clients.cpu, models.embedding_model_name, threshold_to_pass.max_sim_coverage
+        clients.embed_service, threshold_to_pass.max_sim_coverage
     )
 
     # 5) Final Decision
@@ -458,6 +487,7 @@ def verify_generation_against_truth(
         supported_rate, hallucination_rate, contradiction_hits, coverage,
         top_contra, contested, unsupported, per_sentence, passed
     )
+
 
 if __name__ == "__main__":
     import argparse
@@ -479,9 +509,12 @@ if __name__ == "__main__":
                         help='Language for sentence splitting (e.g., "german", "english").')
 
     # Model config
-    parser.add_argument("--embed-model", type=str, default="nomic-embed-text")
-    parser.add_argument("--nli-model", type=str, default="llama3")
-    parser.add_argument("--cpu-host", type=str, default="http://localhost:11435")
+    # Removed --embed-model
+    # Removed --cpu-host
+    parser.add_argument("--embed-service-url", type=str,
+                        default=os.getenv("EMBEDDING_SERVICE_URL", "http://localhost:8001"),
+                        help="URL for the embedding service.")
+    parser.add_argument("--nli-model", type=str, default="gpt-oss:20b")
     parser.add_argument("--gpu-host", type=str, default="http://localhost:11434")
 
     # Thresholds
@@ -537,11 +570,18 @@ if __name__ == "__main__":
             "Er nahm Paracetamol mit etwas Wirkung. Fieber besteht nicht."
         )
 
+    # --- Setup EmbeddingService for __main__ ---
+    # This block is needed to run the script standalone
+    if not args.embed_service_url:
+        raise SystemExit("EMBEDDING_SERVICE_URL environment variable or --embed-service-url argument must be set.")
+
+    # Set env var for the service to use it
+    os.environ["EMBEDDING_SERVICE_URL"] = args.embed_service_url
+    embed_service = EmbeddingService()
+
     # --- Assemble configs ---
     model_cfg = NLIOllamaModelConfig(
-        embedding_model_name=args.embed_model,
         nli_model_name=args.nli_model,
-        cpu_client_host=args.cpu_host,
         gpu_client_host=args.gpu_host,
     )
 
@@ -559,31 +599,45 @@ if __name__ == "__main__":
         zero_contradictions=args.zero_contradictions,
     )
 
+
     # --- Run verification ---
+    async def main():
+        report = None
+        try:
+            report = await verify_generation_against_truth(
+                embed_service=embed_service,  # Pass the service instance
+                ground_truth_text=transcript_text,
+                generated_text=draft_text,
+                language=args.language,
+                models=model_cfg,
+                threshold_to_pass=thresholds,
+                pass_criteria=criteria,
+            )
+
+            # Convert dataclass (with nested dataclasses) to JSON-serializable dict
+            report_dict = asdict(report)
+
+            payload = json.dumps(report_dict, ensure_ascii=False, indent=2)
+            if args.out:
+                with open(args.out, "w", encoding="utf-8") as f:
+                    f.write(payload)
+                print(f"Wrote report to {args.out}")
+            else:
+                print(payload)
+
+        except Exception as e:
+            # Surface a clear failure rather than a long stack trace in typical CLI usage
+            import traceback
+            print(f"[FATAL] Verification failed: {e}")
+            traceback.print_exc()
+
+        finally:
+            # Clean up the embedding service's HTTP client
+            await embed_service.dispose()
+
+
+    # Run the async main function
     try:
-        report = verify_generation_against_truth(
-            ground_truth_text=transcript_text,
-            generated_text=draft_text,
-            language=args.language,
-            models=model_cfg,
-            threshold_to_pass=thresholds,
-            pass_criteria=criteria,
-        )
-
-        # Convert dataclass (with nested dataclasses) to JSON-serializable dict
-        report_dict = asdict(report)
-
-        payload = json.dumps(report_dict, ensure_ascii=False, indent=2)
-        if args.out:
-            with open(args.out, "w", encoding="utf-8") as f:
-                f.write(payload)
-            print(f"Wrote report to {args.out}")
-        else:
-            print(payload)
-
+        asyncio.run(main())
     except Exception as e:
-        # Surface a clear failure rather than a long stack trace in typical CLI usage
-        import traceback
-        print(f"[FATAL] Verification failed: {e}")
-        traceback.print_exc()
-        raise
+        print(f"Failed to run async main: {e}")

@@ -13,11 +13,13 @@ services:
       - ./data/uploads:/app/uploads
       - ./data/processing:/app/processing
     environment:
-      - QDRANT_HOST=qdrant
+      - EMBEDDING_SERVICE_URL=http://rag_it_embeddings:8001
+      - UNSTRUCTURED_SERVICE_URL=http://rag_it_unstructured:8002
+      - OLLAMA_SERVICE_URL=http://rag_it_ollama:11434
+      - QDRANT_HOST=rag_it_qdrant
       - QDRANT_PORT=6333
-      - OLLAMA_SERVICE_URL=http://ollama:11434
-      - EMBEDDING_SERVICE_URL=http://embeddings:8001
-      - UNSTRUCTURED_SERVICE_URL=http://unstructured:8002
+    security_opt:
+      - "label=disable"
     depends_on:
       - qdrant
       - ollama
@@ -55,7 +57,7 @@ services:
       - "6334:6334"
     volumes:
       - ./services/qdrant/config.yaml:/qdrant/config/production.yaml
-      - ./data/qdrant:/qdrant/storage
+      - ./data/qdrant:/qdrant/storage:z
     networks:
       - rag_network
 
