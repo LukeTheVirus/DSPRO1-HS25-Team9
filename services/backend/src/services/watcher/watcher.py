@@ -7,7 +7,7 @@ from ..document.document_service import DocumentService
 
 SUPPORTED_EXTENSIONS = {
     '.pdf', '.txt', '.docx', '.doc', '.pptx', '.ppt',
-    '.html', '.xml', '.json', '.csv', '.md', '.rtf',
+    '.html', '.xml', '.json', '.csv', '.md', '.mdx', '.rtf',
     '.epub', '.msg', '.eml'
 }
 

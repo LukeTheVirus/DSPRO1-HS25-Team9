@@ -49,11 +49,12 @@ services:
     ports:
       - "11434:11434"
     # Default Model - WIRD DIREKT HERUNTERGELADEN ZU BEGINN
+    entrypoint: sh
     command: >
-          sh -c "ollama serve & 
-                sleep 5 && 
-                ollama pull llama3:8b && 
-                wait"
+          -c "ollama serve & 
+              sleep 5 && 
+              ollama pull llama3:8b && 
+              wait"
     deploy:
       resources:
         reservations:
