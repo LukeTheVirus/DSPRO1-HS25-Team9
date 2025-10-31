@@ -27,6 +27,25 @@ services:
     networks:
       - rag_network
 
+  frontend:
+    image: rag_it/frontend:latest
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    container_name: rag_it_frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - APP_TITLE=RAG Chatbot
+    depends_on:
+      - backend
+    volumes:
+      - ./services/frontend/app.py:/app/app.py
+    restart: always
+    networks:
+      - rag_network
+
   qdrant:
     image: qdrant/qdrant:latest
     restart: always
