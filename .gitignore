@@ -206,5 +206,14 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Custom
-/data/
+# Ignore all contents of data and log directories
+/data/*
+/logs/*
+
+# --- But DO NOT ignore the .gitkeep files ---
+!/data/.gitkeep
+!/data/uploads/.gitkeep
+!/data/processing/.gitkeep
+!/data/qdrant/.gitkeep
+!/data/ollama/.gitkeep
+!/logs/.gitkeep

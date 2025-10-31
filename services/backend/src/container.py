@@ -55,7 +55,6 @@ class Container:
         module = module_type()  # Instantiate the module type
         module.register_services(self)
 
-
 class Module:
     def register_services(self, container: Container):
         """Override this method to register services."""

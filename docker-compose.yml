@@ -30,7 +30,7 @@ services:
   frontend:
     image: rag_it/frontend:latest
     build:
-      context: ./frontend
+      context: ./services/frontend
       dockerfile: Dockerfile
     container_name: rag_it_frontend
     ports:
@@ -41,7 +41,7 @@ services:
     depends_on:
       - backend
     volumes:
-      - ./frontend/app.py:/app/app.py
+      - ./services/frontend/app.py:/app/app.py
     restart: always
     networks:
       - rag_network
@@ -61,12 +61,19 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    volumes:
+      - ./data/ollama:/root/.ollama
     restart: always
     container_name: rag_it_ollama
     ports:
       - "11434:11434"
-    volumes:
-      - ./data/ollama:/root/.ollama
+    # Default Model - WIRD DIREKT HERUNTERGELADEN ZU BEGINN
+    entrypoint: sh
+    command: >
+          -c "ollama serve & 
+              sleep 5 && 
+              ollama pull llama3:8b && 
+              wait"
     deploy:
       resources:
         reservations:
