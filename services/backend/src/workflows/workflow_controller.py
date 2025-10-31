@@ -1,8 +1,9 @@
 from .default.workflow import default_workflow
 
+from ..container import Container
 
-def call_workflow(user_query, workflow_name: str = "default", **kwargs):
+async def call_workflow(container: Container, user_query, workflow_name: str = "default", **kwargs):
     if workflow_name == "default":
-        return default_workflow(user_query, **kwargs)
+        return await default_workflow(container, user_query, **kwargs)
     else:
         raise Exception("Workflow not found")
